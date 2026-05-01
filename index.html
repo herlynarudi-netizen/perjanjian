@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <!-- Meta viewport agar responsif di HP -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Surat Perjanjian Mitra - Resta Travel</title>
+    
+    <!-- Memanggil Library jsPDF dan html2canvas dari CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 15px;
+            color: #333;
+        }
+
+        /* Pembungkus utama yang akan dijadikan PDF */
+        #dokumenPdf {
+            background-color: #fff;
+            padding: 30px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h2, h3 {
+            text-align: center;
+            margin: 5px 0;
+        }
+
+        h2 { font-size: 20px; text-transform: uppercase; }
+        h3 { font-size: 16px; color: #555; margin-bottom: 25px; }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        /* Input text dibuat seperti garis bawah saja agar rapi di PDF */
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            border-bottom: 1px solid #ccc;
+            font-size: 14px;
+            box-sizing: border-box;
+            background-color: transparent;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-bottom: 2px solid #000;
+        }
+
+        .perjanjian-text {
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 20px 0;
+            text-align: justify;
+        }
+
+        .ttd-area {
+            margin-top: 30px;
+        }
+
+        .ttd-area label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        canvas {
+            border: 2px dashed #999;
+            background-color: #fafafa;
+            width: 100%;
+            height: 200px;
+            border-radius: 5px;
+            touch-action: none; /* Cegah scroll saat TTD di HP */
+            cursor: crosshair;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        #btnHapus { background-color: #e74c3c; }
+        #btnHapus:hover { background-color: #c0392b; }
+
+        #btnSimpanPdf { background-color: #2ecc71; }
+        #btnSimpanPdf:hover { background-color: #27ae60; }
+        
+        #loadingMsg {
+            text-align: center;
+            color: #2980b9;
+            font-weight: bold;
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- AREA DOKUMEN YANG AKAN DI-PRINT KE PDF -->
+    <div id="dokumenPdf">
+        <h2>Surat Perjanjian Kerjasama Mitra</h2>
+        <h3>RESTA TRAVEL - PALEMBANG</h3>
+
+        <div class="form-group">
+            <label>Nama Lengkap (Sesuai KTP):</label>
+            <input type="text" id="namaMitra" placeholder="Ketik nama di sini...">
+        </div>
+        
+        <div class="form-group">
+            <label>Nomor Induk Kependudukan (NIK):</label>
+            <input type="number" id="nikMitra" placeholder="Ketik NIK di sini...">
+        </div>
+
+        <div class="form-group">
+            <label>Nomor HP / WhatsApp Aktif:</label>
+            <input type="tel" id="hpMitra" placeholder="Ketik No HP di sini...">
+        </div>
+
+        <div class="perjanjian-text">
+            Dengan ini menyatakan bersedia menjadi Mitra Pengemudi (Mang Sopir) dengan ketentuan:
+            <ol>
+                <li>Siap melayani rute Palembang menuju Lampung, Jambi, maupun Jakarta.</li>
+                <li>Siap mengikuti jadwal keberangkatan armada yaitu pukul 11:00 Siang, 15:00 Sore, atau 20:00 Malam.</li>
+                <li>Berkomitmen menjaga keselamatan penumpang, barang bawaan, serta menjaga kondisi unit kendaraan.</li>
+            </ol>
+            Demikian surat ini dibuat dan ditandatangani tanpa ada paksaan dari pihak manapun.
+        </div>
+
+        <div class="ttd-area">
+            <label>Tanda Tangan Mang Sopir:</label>
+            <!-- Resolusi internal canvas diset 600x300 agar tidak pecah saat di-PDF-kan -->
+            <canvas id="signatureCanvas" width="600" height="300"></canvas>
+            <div style="text-align: center; font-size: 12px; color: #888; margin-top: 5px;">
+                (Meterai & Tanda Tangan Digital)
+            </div>
+        </div>
+    </div>
+
+    <!-- TOMBOL AKSI (Bagian ini tidak akan masuk ke PDF) -->
+    <div class="action-buttons">
+        <button id="btnHapus">Hapus TTD</button>
+        <button id="btnSimpanPdf">Download PDF</button>
+    </div>
+    <div id="loadingMsg">Memproses PDF, mohon tunggu...</div>
+
+    <script>
+        // --- LOGIKA TANDA TANGAN (CANVAS) ---
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000000';
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Scaling faktor untuk menyamakan ukuran layar dengan ukuran asli canvas
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            if (e.touches) {
+                return [
+                    (e.touches[0].clientX - rect.left) * scaleX,
+                    (e.touches[0].clientY - rect.top) * scaleY
+                ];
+            } else {
+                return [
+                    (e.clientX - rect.left) * scaleX,
+                    (e.clientY - rect.top) * scaleY
+                ];
+            }
+        }
+
+        function startDrawing(e) {
+            e.preventDefault();
+            isDrawing = true;
+            [lastX, lastY] = getMousePos(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const [currentX, currentY] = getMousePos(e);
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            [lastX, lastY] = [currentX, currentY];
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        // Event Mouse (Desktop)
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Event Touch (Mobile)
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+        // Hapus Canvas
+        document.getElementById('btnHapus').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+
+        // --- LOGIKA EXPORT KE PDF ---
+        document.getElementById('btnSimpanPdf').addEventListener('click', () => {
+            const dokumenPdf = document.getElementById('dokumenPdf');
+            const loadingMsg = document.getElementById('loadingMsg');
+            
+            // Nama file diambil dari input nama (jika kosong, pakai default)
+            let namaPengemudi = document.getElementById('namaMitra').value.trim();
+            if(!namaPengemudi) namaPengemudi = "Mang_Sopir";
+            const fileName = `Surat_Perjanjian_${namaPengemudi}.pdf`;
+
+            loadingMsg.style.display = 'block'; // Tampilkan tulisan loading
+
+            // Gunakan html2canvas untuk memfoto div #dokumenPdf
+            html2canvas(dokumenPdf, { scale: 2 }).then(canvasImage => {
+                const imgData = canvasImage.toDataURL('image/png');
+                
+                // Gunakan jsPDF
+                const { jsPDF } = window.jspdf;
+                // Format p = portrait, pt = points, a4 = ukuran kertas
+                const pdf = new jsPDF('p', 'mm', 'a4'); 
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvasImage.height * pdfWidth) / canvasImage.width;
+
+                // Masukkan gambar foto ke dalam PDF
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                
+                // Download file-nya
+                pdf.save(fileName);
+                
+                loadingMsg.style.display = 'none'; // Sembunyikan loading
+            }).catch(err => {
+                console.error("Gagal membuat PDF: ", err);
+                alert("Terjadi kesalahan saat memproses PDF.");
+                loadingMsg.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
